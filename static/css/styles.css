@@ -1,0 +1,24 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    padding: 0;
+}
+
+h1 {
+    color: #333;
+}
+
+a {
+    display: inline-block;
+    margin: 10px 0;
+    color: blue;
+    text-decoration: none;
+}
+
+form, table {
+    margin-top: 20px;
+}
+
+
+        
+    

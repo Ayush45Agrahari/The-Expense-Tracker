@@ -1,0 +1,38 @@
+# Node.js modules
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS-specific files
+.DS_Store       # macOS
+Thumbs.db       # Windows
+
+# Editor directories and files
+.vscode/
+.idea/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build directories
+dist/
+build/
+
+# Temporary files
+*.swp           # Vim swap files
+*.bak           # Backup files
+*.tmp           # Temporary files
+
+# Dependency directories (for some package managers)
+jspm_packages/
+
+# Tyepscript build directory
+*.tsbuildinfo
+ 
