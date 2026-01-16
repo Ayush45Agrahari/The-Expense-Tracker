@@ -24,3 +24,16 @@
     text-align: center;
     margin-left: 45%;
   }
+  .watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.08;
+    z-index: -1;
+}
+
+.content {
+    position: relative;
+    z-index: 2;
+}

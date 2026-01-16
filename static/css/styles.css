@@ -18,6 +18,16 @@ a {
 form, table {
     margin-top: 20px;
 }
+.watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.08;
+    z-index: -1;              /* 👈 navbar ke peeche */
+    pointer-events: none;     /* 👈 clicks block nahi karega */
+}
+
 
 
         

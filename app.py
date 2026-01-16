@@ -1,154 +1,204 @@
-from flask import Flask, render_template, request, redirect, jsonify
+from flask import Flask, render_template, request, redirect, session, flash
+from werkzeug.security import generate_password_hash, check_password_hash
 import json
 import os
-from flask import Response
-
 
 app = Flask(__name__)
+app.secret_key = "secret123"
 
+# ---------------- FILE PATHS ----------------
 DATA_FILE = "data/expenses.json"
+USERS_FILE = "data/users.json"
 
-# Ensure the data directory exists
-os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+os.makedirs("data", exist_ok=True)
 
-
-
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-app.jinja_env.auto_reload = True  # Ensure templates are reloaded
-app.config['TEMPLATES_AUTO_RELOAD'] = True  # Enable template auto-reload
-
-
-
-@app.after_request
-def add_header(response):
-    response.cache_control.no_cache = True
-    return response
-
-
-
-
-
-# Create the file if it doesn't exist
 if not os.path.exists(DATA_FILE):
     with open(DATA_FILE, "w") as f:
-        f.write("[]")
+        json.dump([], f)
 
+if not os.path.exists(USERS_FILE):
+    with open(USERS_FILE, "w") as f:
+        json.dump([], f)
 
+# ---------------- HELPERS ----------------
 def read_data():
-    with open(DATA_FILE, "r") as f:
-        return json.load(f)
+    try:
+        with open(DATA_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return []
 
 def write_data(data):
     with open(DATA_FILE, "w") as f:
-        json.dump(data, f)
+        json.dump(data, f, indent=2)
 
-@app.route('/')
-def home():
-    return render_template('index.html')
+def read_users():
+    try:
+        with open(USERS_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return []
 
-@app.route('/view')
-def view_expenses():
-    data = read_data()  # Load expenses from the JSON file
-    # Calculate summary here
-    total_expense = sum(expense['amount'] for expense in data)
-    paid_amount = sum(expense.get('paid', 0) for expense in data)  # Example: expenses might have a 'paid' field
-    remaining_amount = total_expense - paid_amount
+def write_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, indent=2)
 
-    summary = {
-        'total': total_expense,
-        'paid': paid_amount,
-        'remaining': remaining_amount
-    }
-    return render_template('view_expenses.html', expenses=data, summary=summary)
-
-
-
-
-
-def calculate_summary():
-    data = read_data()
-    paid = sum(expense["amount"] for expense in data if expense["is_paid"])
-    total = sum(expense["amount"] for expense in data)
+def calculate_summary(data):
+    total = sum(e.get("amount", 0) for e in data)
+    paid = sum(e.get("amount", 0) for e in data if e.get("is_paid"))
     remaining = total - paid
-    return {"paid": paid, "remaining": remaining, "total": total}
+    return {"total": total, "paid": paid, "remaining": remaining}
 
+# ---------------- AUTH ROUTES ----------------
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
 
-@app.route('/mark_paid/<int:expense_id>')
-def mark_as_paid(expense_id):
-    data = read_data()
-    if 0 <= expense_id < len(data):
-        data[expense_id]["is_paid"] = True
-        write_data(data)
-    return redirect("/view")
+        users = read_users()
+        for u in users:
+            if u["username"] == username:
+                flash("Username already exists", "error")
+                return redirect("/signup")
 
+        users.append({
+            "username": username,
+            "password": generate_password_hash(password)
+        })
+        write_users(users)
 
-@app.route('/add', methods=["GET", "POST"])
+        flash("Account created successfully! Please login.", "success")
+        return redirect("/login")
+
+    return render_template("signup.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+
+        users = read_users()
+        for u in users:
+            if u["username"] == username and check_password_hash(u["password"], password):
+                session["user"] = username
+                flash("Login successful!", "success")
+                return redirect("/")
+
+        flash("Invalid username or password", "error")
+        return redirect("/login")
+
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    session.pop("user", None)
+    flash("Logged out successfully", "success")
+    return redirect("/login")
+
+# ---------------- PAGES ----------------
+@app.route("/")
+def index():
+    if "user" not in session:
+        return redirect("/login")
+    return render_template("index.html")
+
+@app.route("/add", methods=["GET", "POST"])
 def add_expense():
+    if "user" not in session:
+        return redirect("/login")
+
     if request.method == "POST":
         expense = {
+            "user": session["user"],
             "date": request.form["date"],
             "category": request.form["category"],
             "amount": float(request.form["amount"]),
             "description": request.form["description"],
-            "is_paid": request.form.get("is_paid") == "on"  # New field for payment status
+            "is_paid": request.form.get("is_paid") == "on"
         }
+
         data = read_data()
         data.append(expense)
         write_data(data)
-        return redirect("/")
-    return render_template('add_expense.html')
 
+        flash("Expense added successfully!", "success")
+        return redirect("/view")
 
+    return render_template("add_expense.html")
 
+@app.route("/view")
+def view_expenses():
+    if "user" not in session:
+        return redirect("/login")
 
-@app.route('/api/summary')
-def summary():
+    selected_category = request.args.get("category", "All")
     data = read_data()
-    summary = {}
-    for item in data:
-        category = item["category"]
-        summary[category] = summary.get(category, 0) + item["amount"]
-    return jsonify(summary)
 
-@app.route('/delete/<int:expense_id>', methods=['POST'])
+    # user-wise filter (safe)
+    user_expenses = [
+        e for e in data
+        if e.get("user") == session["user"]
+    ]
 
-def delete_expense(expense_id):
-    data = read_data()
-    if 0 <= expense_id < len(data):
-        del data[expense_id]
-        write_data(data)
-    return redirect('/view')
+    # category filter (case-insensitive)
+    if selected_category != "All":
+        user_expenses = [
+            e for e in user_expenses
+            if e.get("category", "").lower() == selected_category.lower()
+        ]
 
+    summary = calculate_summary(user_expenses)
 
-@app.route('/update/<int:expense_id>', methods=['GET', 'POST'])
+    return render_template(
+        "view_expenses.html",
+        expenses=user_expenses,
+        summary=summary,
+        selected_category=selected_category
+    )
+
+@app.route("/update/<int:expense_id>", methods=["GET", "POST"])
 def update_expense(expense_id):
-    data = read_data()  # Load existing expenses
-    expense = data[expense_id]  # Get the expense to be updated
+    if "user" not in session:
+        return redirect("/login")
 
-    if request.method == 'POST':
-        # Update the expense details
-        
-        expense['amount'] = float(request.form['amount'])
-        expense['new_description'] = request.form['new_description']
-        expense['paid'] = float(request.form['paid'])  # Amount paid input
-        expense['remaining'] = expense['amount'] - expense['paid']  # Calculate remaining
+    data = read_data()
+    user_expenses = [e for e in data if e.get("user") == session["user"]]
 
-        # Save updated data
-        data[expense_id] = expense
+    if not (0 <= expense_id < len(user_expenses)):
+        return redirect("/view")
+
+    expense = user_expenses[expense_id]
+
+    if request.method == "POST":
+        expense["date"] = request.form["date"]
+        expense["category"] = request.form["category"]
+        expense["amount"] = float(request.form["amount"])
+        expense["description"] = request.form["description"]
+        expense["is_paid"] = request.form.get("is_paid") == "on"
+
         write_data(data)
+        flash("Expense updated successfully!", "success")
+        return redirect("/view")
 
-        return redirect('/view')
+    return render_template("update_expense.html", expense=expense)
 
-    return render_template('update_expense.html', expense=expense, expense_id=expense_id)
+@app.route("/delete/<int:expense_id>", methods=["POST"])
+def delete_expense(expense_id):
+    if "user" not in session:
+        return redirect("/login")
 
+    data = read_data()
+    user_expenses = [e for e in data if e.get("user") == session["user"]]
 
+    if 0 <= expense_id < len(user_expenses):
+        data.remove(user_expenses[expense_id])
+        write_data(data)
+        flash("Expense deleted successfully!", "success")
 
+    return redirect("/view")
 
-
-
+# ---------------- RUN ----------------
 if __name__ == "__main__":
     app.run(debug=True)

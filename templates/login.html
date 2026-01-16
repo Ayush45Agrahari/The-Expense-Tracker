@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="container d-flex justify-content-center align-items-center" style="min-height:80vh;">
+    <div class="card shadow-lg p-4" style="width: 380px; border-radius: 15px;">
+        <h3 class="text-center mb-3 text-primary">Welcome Back 👋</h3>
+        <p class="text-center text-muted mb-4">Login to manage your expenses</p>
+
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" placeholder="Enter username" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+            </div>
+
+            <button class="btn btn-primary w-100 mt-2">Login</button>
+        </form>
+
+        <div class="text-center mt-3">
+            <small>Don't have an account?
+                <a href="/signup" class="text-decoration-none">Sign up</a>
+            </small>
+        </div>
+    </div>
+</div>
+{% endblock %}

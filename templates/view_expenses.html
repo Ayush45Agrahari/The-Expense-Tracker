@@ -1,118 +1,88 @@
+{% extends "base.html" %}
 
+{% block title %}View Expenses{% endblock %}
 
+{% block content %}
 
+<div class="container mt-4">
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>View Expenses</title>
-    <link href="{{ url_for('static', filename='css/footer.css') }}" rel="stylesheet">
+    <h2 class="mb-4">Your Expenses</h2>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <h1 class="text-primary text-center">Your Expenses</h1>
-        <table class="table table-bordered table-striped mt-4">
-            <thead class="table-dark">
-                <tr>
-                    <th>Date</th>
-                    <th>Category</th>
-                    <th>Amount</th>
-                    <th>Description</th>
-                    <th colspan="2"  style="text-align: center; width: 5%;" >Actions</th>
-                    
-                </tr>
-            </thead>
-            <tbody>
-                {% for expense in expenses %}
-                <tr>
-                    <td>{{ expense.date }}</td>
-                    <td>{{ expense.category }}</td>
-                    <td>{{ expense.amount }}</td>
-                    <td>{{ expense.description }}</td>
-                    <td >
-                        <form action="/delete/{{ loop.index0 }}" method="POST" style="display: inline;">
-                            <button class="btn btn-danger btn-sm" type="submit" >Delete</button>
-                        </form>
-                        
-                    </td>
-                    <td >
-                        <a href="/update/{{ loop.index0 }}" class="btn btn-warning btn-sm"  >Update</a>
+    <!-- CATEGORY FILTER -->
+    <form method="GET" class="mb-4">
+        <label class="fw-bold me-2">Filter by Category:</label>
 
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <a href="/" class="btn btn-secondary">Back to Home</a>
+        <select name="category" class="form-select d-inline w-25">
+            <option value="All" {% if selected_category=="All" %}selected{% endif %}>All</option>
+            <option value="Food" {% if selected_category=="Food" %}selected{% endif %}>Food</option>
+            <option value="Rent" {% if selected_category=="Rent" %}selected{% endif %}>Rent</option>
+            <option value="Travel" {% if selected_category=="Travel" %}selected{% endif %}>Travel</option>
+            <option value="Shopping" {% if selected_category=="Shopping" %}selected{% endif %}>Shopping</option>
+            <option value="Other" {% if selected_category=="Other" %}selected{% endif %}>Other</option>
+        </select>
+
+        <button type="submit" class="btn btn-primary ms-2">
+            Apply
+        </button>
+    </form>
+
+    <!-- EXPENSE TABLE -->
+    {% if expenses %}
+    <table class="table table-bordered table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Date</th>
+                <th>Category</th>
+                <th>Amount</th>
+                <th>Description</th>
+                <th>Paid</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for expense in expenses %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ expense.date }}</td>
+                <td>{{ expense.category }}</td>
+                <td>₹ {{ expense.amount }}</td>
+                <td>{{ expense.description }}</td>
+                <td>
+                    {% if expense.is_paid %}
+                        ✅
+                    {% else %}
+                        ❌
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/update/{{ loop.index0 }}" class="btn btn-sm btn-warning">
+                        Edit
+                    </a>
+
+                    <form action="/delete/{{ loop.index0 }}" method="POST" style="display:inline;">
+                        <button class="btn btn-sm btn-danger">
+                            Delete
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- SUMMARY -->
+    <div class="mt-4">
+        <h5>Summary</h5>
+        <p><strong>Total:</strong> ₹ {{ summary.total }}</p>
+        <p><strong>Paid:</strong> ₹ {{ summary.paid }}</p>
+        <p><strong>Remaining:</strong> ₹ {{ summary.remaining }}</p>
     </div>
-</body>
-</html>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>View Expenses</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <h1 class="text-primary text-center">Your Expenses</h1>
-        
-        <!-- Summary Section -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Expense Summary</h5>
-                <p>Total Amount: ₹{{ summary.total }}</p>
-                <p>Paid Amount: ₹{{ summary.paid }}</p>
-                <p>Remaining Amount: ₹{{ summary.remaining }}</p>
-            </div>
-        </div>
+    {% else %}
+        <p>No expenses added yet.</p>
+    {% endif %}
 
-        <div class="container mt-4">
-            <h2 class="text-primary">Summary</h2>
-            <p>Total Expense: {{ summary.total }}</p>
-            <p>Paid Amount: {{ summary.paid }}</p>
-            <p>Remaining Amount: {{ summary.remaining }}</p>
-        </div>
-        
-        <table class="table table-bordered table-striped mt-4">
-            <thead class="table-dark">
-                <tr>
-                    <th>Date</th>
-                    <th>Category</th>
-                    <th>Amount</th>
-                    <th>Paid</th>
-                    <th>Remaining</th>
-                    <th>Description</th>
-                    <th>Updated Description</th>   <!-- adding new column to the new des -->
-                    
-                </tr>
-            </thead>
-            <tbody>
-                {% for expense in expenses %}
-                <tr>
-                    <td>{{ expense.date }}</td>
-                    <td>{{ expense.category }}</td>
-                    <td>{{ expense.amount }}</td>
-                    <td>{{ expense.get('paid', 0) }}</td>
-                    <td>{{ expense.get('remaining', expense.amount) }}</td>
-                    <td>{{ expense.description }}</td>
-                    <td>{{ expense.new_description }}</td>
-                    
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        
-        
-       
-        
-        <a href="/" class="btn btn-secondary">Back to Home</a>
-    </div>
-    <div class="footer-bottom">
-        <p class="ft" >&copy; Thanks for Visiting Us !</p>
-      </div>
-</body>
-</html>
+</div>
+
+{% endblock %}
